@@ -3,11 +3,16 @@
  */
 
 import React from 'react';
-import {SinglePage, PageFrame} from 'cs-web-components-base';
+import { Provider } from 'react-redux';
+import { store } from '../app/store';
 import CapexMastersSetup from '../components/CapexMastersSetup';
 
 export default class MainComponent extends React.Component {
-    render() {
-        return (< CapexMastersSetup />);
-    }
+  render() {
+    return (
+      <Provider store={store}>
+        <CapexMastersSetup />
+      </Provider>
+    );
+  }
 }

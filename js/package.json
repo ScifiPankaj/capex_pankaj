@@ -10,7 +10,7 @@
     "license": "UNLICENSED",
     "private": true,
     "dependencies": {
-        "@reduxjs/toolkit": "^2.9.2",
+        "@reduxjs/toolkit": "^2.10.1",
         "lucide-react": "^0.548.0",
         "react-redux": "^9.2.0",
         "xlsx": "^0.18.5"

@@ -1,7 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, Save, Building, Package, FileText, Leaf, CheckCircle, AlertCircle, Home, BarChart3, Settings, Users, X, RefreshCw, TrendingUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  Search, Plus, Edit2, Trash2, Save, Building, Package, FileText, Leaf,
+  CheckCircle, AlertCircle, Home, BarChart3, Settings, Users, X, RefreshCw, TrendingUp
+} from 'lucide-react';
+
+import {
+  useGetPlantsQuery,
+  useGetRequirementsQuery,
+  useGetNatureAssetsQuery,
+  useGetItemSourcesQuery,
+  useGetEsgImpactsQuery,
+  useMutateMasterMutation,
+} from '../entities/masters/mastersApi';
+
+
 
 const API_BASE = 'http://localhost:8080/api/v1/collection';
+
 
 const MASTER_CONFIGS = {
   'kln_plantmaster': {
@@ -96,9 +111,7 @@ const NAV_ITEMS = [
   { id: 'users', label: 'Users', icon: Users }
 ];
 
-const CapexMastersSetup = () => {
-  const [masterData, setMasterData] = useState({});
-  const [loading, setLoading] = useState(false);
+  const CapexMastersSetup = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [currentMaster, setCurrentMaster] = useState(null);
@@ -108,88 +121,59 @@ const CapexMastersSetup = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeNav, setActiveNav] = useState('masters');
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  // RTK Query reads
+  const plantsQ   = useGetPlantsQuery();
+  const reqQ      = useGetRequirementsQuery();
+  const natureQ   = useGetNatureAssetsQuery();
+  const srcQ      = useGetItemSourcesQuery();
+  const esgQ      = useGetEsgImpactsQuery();
 
+  const [mutateMaster] = useMutateMasterMutation();
+
+  // helper: normalize server shapes
   const extractArray = (result) => {
     if (Array.isArray(result)) return result;
-    const possibleKeys = ['objects', 'data', 'items', 'results', 'rows'];
-    for (const k of possibleKeys) {
-      if (result && Array.isArray(result[k])) return result[k];
-    }
+    const possible = ['objects','data','items','results','rows'];
+    for (const k of possible) if (result && Array.isArray(result[k])) return result[k];
     if (result && typeof result === 'object') {
-      const arrKey = Object.keys(result).find(k => Array.isArray(result[k]));
-      if (arrKey) return result[arrKey];
+      const k = Object.keys(result).find(k => Array.isArray(result[k]));
+      if (k) return result[k];
     }
     return [];
   };
+  const normalizeActive = (arr) =>
+    extractArray(arr).map((x) => ({
+      ...x,
+      ...(x.hasOwnProperty('is_active') ? { is_active: !!(x.is_active === 1 || x.is_active === '1' || x.is_active === true) } : {})
+    }));
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    const data = {};
+  // combine all masters into the same shape your UI expects
+  const masterData = useMemo(() => ({
+    kln_plantmaster:    normalizeActive(plantsQ.data),
+    car_requirement_type: normalizeActive(reqQ.data),
+    car_nature_asset:   normalizeActive(natureQ.data),
+    car_item_source:    normalizeActive(srcQ.data),
+    car_esg_impacts:    normalizeActive(esgQ.data),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [plantsQ.data, reqQ.data, natureQ.data, srcQ.data, esgQ.data]);
 
-    for (const [key, config] of Object.entries(MASTER_CONFIGS)) {
-      try {
-        const url = `${API_BASE}${config.endpoint}`;
-        const response = await fetch(url, {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-          }
-        });
+  const loading = plantsQ.isLoading || reqQ.isLoading || natureQ.isLoading || srcQ.isLoading || esgQ.isLoading;
 
-        const text = await response.text();
-        let parsed;
-        try {
-          parsed = text ? JSON.parse(text) : null;
-        } catch (err) {
-          console.warn(`⚠️ Response for ${key} not JSON; raw text:`, text);
-          parsed = text;
-        }
-
-        const arr = extractArray(parsed);
-        const normalized = arr.map(item => {
-          const copy = { ...item };
-          if ('is_active' in copy) {
-            copy.is_active = !!(copy.is_active === 1 || copy.is_active === '1' || copy.is_active === true);
-          }
-          return copy;
-        });
-
-        console.log(`✅ Fetched ${key} from ${url} — found ${normalized.length} item(s).`, normalized.slice(0, 3));
-        data[key] = normalized;
-      } catch (error) {
-        console.error(`❌ Error fetching ${key}:`, error);
-        data[key] = [];
-      }
-    }
-
-    setMasterData(data);
-    setLoading(false);
+  const refetchAll = () => {
+    plantsQ.refetch(); reqQ.refetch(); natureQ.refetch(); srcQ.refetch(); esgQ.refetch();
   };
 
   const openModal = (masterKey, item = null) => {
     setCurrentMaster(masterKey);
     setEditingItem(item);
     setErrorMessage('');
-
-    if (item) {
-      setFormData({ ...item });
-    } else {
-      const config = MASTER_CONFIGS[masterKey];
-      const initialData = {};
-      config.fields.forEach(field => {
-        if (field.type === 'checkbox') {
-          initialData[field.name] = true;
-        } else {
-          initialData[field.name] = '';
-        }
+    if (item) setFormData({ ...item });
+    else {
+      const initial = {};
+      MASTER_CONFIGS[masterKey].fields.forEach(f => {
+        initial[f.name] = f.type === 'checkbox' ? true : '';
       });
-      setFormData(initialData);
+      setFormData(initial);
     }
     setModalOpen(true);
   };
@@ -202,100 +186,54 @@ const CapexMastersSetup = () => {
     setErrorMessage('');
   };
 
+  // SAVE via generic mutation
   const handleSave = async () => {
-    const config = MASTER_CONFIGS[currentMaster];
-    const endpoint = `${API_BASE}${config.endpoint}`;
+    const cfg = MASTER_CONFIGS[currentMaster];
+    const endpoint = `${API_BASE}${cfg.endpoint}`;
+    const submit = { ...formData };
 
-    const submitData = { ...formData };
-
-    // Convert numeric fields to actual numbers
-    config.fields.forEach(field => {
-      if (field.type === 'number' && submitData[field.name]) {
-        submitData[field.name] = Number(submitData[field.name]);
+    // number casting
+    cfg.fields.forEach(f => {
+      if (f.type === 'number' && submit[f.name] !== '' && submit[f.name] !== undefined && submit[f.name] !== null) {
+        submit[f.name] = Number(submit[f.name]);
       }
     });
-
-    // Convert is_active to 1/0
-    if ('is_active' in submitData) {
-      submitData.is_active = submitData.is_active ? 1 : 0;
-    }
+    if ('is_active' in submit) submit.is_active = submit.is_active ? 1 : 0;
 
     try {
-      let url = endpoint;
-      let method = 'POST';
-
-      if (editingItem) {
-        // For updates, use the appropriate ID field
-        const idValue = editingItem[config.idField];
-        url = `${endpoint}/${idValue}`;
-        method = 'PUT';
-      }
-
-      console.log(`🔄 ${method} request to ${url}`, submitData);
-
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData)
-      });
-
-      if (response.ok) {
-        console.log('✅ Save successful, refreshing data...');
-        closeModal();
-        setLoading(true);
-        await fetchAllData();
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        const errorData = await response.text();
-        console.error('❌ Save error response:', errorData);
-        setErrorMessage(`Error: ${errorData}`);
-      }
-    } catch (error) {
-      console.error('❌ Save error:', error);
-      setErrorMessage(`Error: ${error.message}`);
+      const method = editingItem ? 'PUT' : 'POST';
+      const url = editingItem ? `${endpoint}/${editingItem[cfg.idField]}` : endpoint;
+      const res = await mutateMaster({ url, method, body: JSON.stringify(submit) }).unwrap();
+      closeModal();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+      // lists are invalidated automatically; still can manual refetch if you want:
+      // refetchAll();
+    } catch (e) {
+      setErrorMessage(`Error: ${e?.data || e?.error || e?.message || 'Unknown error'}`);
     }
   };
 
+  // DELETE via generic mutation
   const handleDelete = async (masterKey, item) => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
-
-    const config = MASTER_CONFIGS[masterKey];
-    const idValue = item[config.idField];
-
+    const cfg = MASTER_CONFIGS[masterKey];
+    const url = `${API_BASE}${cfg.endpoint}/${item[cfg.idField]}`;
     try {
-      const url = `${API_BASE}${config.endpoint}/${idValue}`;
-      console.log(`🗑️ DELETE request to ${url}`);
-
-      const response = await fetch(url, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        console.log('✅ Delete successful, refreshing data...');
-        await fetchAllData();
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        const errorData = await response.text();
-        alert(`Error deleting item: ${errorData}`);
-      }
-    } catch (error) {
-      console.error('❌ Delete error:', error);
-      alert(`Error deleting item: ${error.message}`);
+      await mutateMaster({ url, method: 'DELETE' }).unwrap();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+      // refetchAll();
+    } catch (e) {
+      alert(`Error deleting item: ${e?.data || e?.error || e?.message || 'Unknown error'}`);
     }
   };
 
-  const filterItems = (items) => {
-    if (!searchTerm) return items;
-    return items.filter(item =>
-      JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
+  const filterItems = (items) =>
+    !searchTerm ? items : items.filter((it) => JSON.stringify(it).toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const getTotalItems = () => {
-    return Object.values(masterData).reduce((sum, items) => sum + items.length, 0);
-  };
+  const getTotalItems = () =>
+    Object.values(masterData).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
 
   return (
     <div style={{ height: '100vh', display: 'flex', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -482,7 +420,7 @@ const CapexMastersSetup = () => {
             </div>
 
             <button
-              onClick={fetchAllData}
+              onClick={refetchAll}
               disabled={loading}
               style={{
                 padding: '8px 14px',
