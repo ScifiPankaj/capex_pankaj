@@ -71,6 +71,32 @@ def _setup(self, request):
 def get_base_path(self, request):
     return request.path
 
+############for testing Layouts
+
+class Layout(BaseApp):
+    pass
+
+
+@Root.mount(app=Layout, path="/kalyani.iot/Layout")
+def _mount_app():
+    return Layout()
+
+
+@Layout.view(model=BaseModel, name="document_title", internal=True)
+def default_document_title(self, request):
+    return "Layout"
+
+
+@Layout.view(model=BaseModel, name="app_component", internal=True)
+def _setup(self, request):
+    request.app.include("kalyani-iot-capex", "0.0.1")
+    return "kalyani-iot-capex-Layout"
+
+
+@Layout.view(model=BaseModel, name="base_path", internal=True)
+def get_base_path(self, request):
+    return request.path
+
 
 
 @sig.connect(rte.APPLICATIONS_LOADED_HOOK)

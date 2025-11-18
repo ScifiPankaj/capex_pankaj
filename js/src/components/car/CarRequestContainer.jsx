@@ -1,30 +1,28 @@
-// src/containers/CarComponent.jsx
+// src/components/car/CarDashboardContent.jsx
 import React, { useState } from 'react';
 import {
   Search, Plus, FileText, CheckCircle, Clock, XCircle,
-  Bell, User, Download, Edit, Trash2,
-  BarChart3, Calendar, MoreVertical,
-  DollarSign, RefreshCw, Eye
+  Bell, ChevronRight, Download, Edit, Trash2,
+  BarChart3, Calendar, Filter, MoreVertical,
+  TrendingUp, DollarSign, RefreshCw, User
 } from 'lucide-react';
 import {
   useGetCarRequestsQuery,
   useAddCarRequestMutation,
   useUpdateCarRequestMutation,
   useDeleteCarRequestMutation,
-} from '../reducers/features/CarForm/carRequestApi';
+} from '../../reducers/features/CarForm/carRequestApi';
 
-// ✅ Import both the form/wizard and the view component
-import CarRequestForm from '../components/car/CarRequestForm';
-import CarRequestView from '../components/car/CarRequestView';
+import CarRequestForm from './CarRequestForm';
 
-
-const CarComponent = () => {
+/**
+ * 🎨 CAR Dashboard Content (No Sidebar - works with MainLayout)
+ */
+const CarRequestContainer = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [modalMode, setModalMode] = useState('create'); // 'create', 'edit', or 'view'
-
 
   // RTK Query hooks
   const { data: apiData, isLoading, error, refetch } = useGetCarRequestsQuery();
@@ -79,9 +77,9 @@ const CarComponent = () => {
 
     const status = (request.car_status || 'Created').toLowerCase();
     const matchesStatus = statusFilter === 'all' ||
-      (statusFilter === 'draft' && status === 'created') ||
-      (statusFilter === 'pending' && (status === 'submitted' || !request.car_status)) ||
-      status === statusFilter;
+                         (statusFilter === 'draft' && status === 'created') ||
+                         (statusFilter === 'pending' && (status === 'submitted' || !request.car_status)) ||
+                         status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -100,7 +98,6 @@ const CarComponent = () => {
       }
       setModalOpen(false);
       setEditing(null);
-      setModalMode('create');
       refetch();
     } catch (err) {
       console.error('Save failed:', err);
@@ -122,32 +119,12 @@ const CarComponent = () => {
 
   const openAdd = () => {
     setEditing(null);
-    setModalMode('create');
     setModalOpen(true);
   };
 
   const openEdit = (request) => {
     setEditing(request);
-    setModalMode('edit');
     setModalOpen(true);
-  };
-
-  // ✅ NEW: Open in pure view mode (read-only)
-  const openView = (request) => {
-    setEditing(request);
-    setModalMode('view');
-    setModalOpen(true);
-  };
-
-  // ✅ NEW: Switch from view mode to edit mode
-  const switchToEdit = () => {
-    setModalMode('edit');
-  };
-
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditing(null);
-    setModalMode('create');
   };
 
   const exportToExcel = () => {
@@ -173,9 +150,9 @@ const CarComponent = () => {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
       {/* Header */}
-      <div className="bg-white border-b-2 border-gray-200 mb-6">
+      <header className="bg-white border-b-2 border-gray-200 sticky top-0 z-40">
         <div className="px-8 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -236,10 +213,10 @@ const CarComponent = () => {
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Content Area */}
-      <div className="px-8">
+      <div className="p-8">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -268,7 +245,7 @@ const CarComponent = () => {
                       {/* Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h2 className="text-md font-bold text-gray-900 mb-2">{request.project_name || 'Untitled'}</h2>
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">{request.project_name || 'Untitled'}</h3>
                           <p className="text-gray-600 font-medium">CAR #{request.car_no || 'N/A'}</p>
                         </div>
                         <span className={`px-4 py-2 rounded-lg text-sm font-bold border-2 ${statusInfo.color}`}>
@@ -282,7 +259,7 @@ const CarComponent = () => {
                       </div>
 
                       {/* Details Grid */}
-                      <div className="grid grid-cols-2 gap-3 mb-4 text-md">
+                      <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                           <span className="text-gray-900 truncate font-medium">
@@ -315,62 +292,25 @@ const CarComponent = () => {
                       <div className="flex items-center justify-between pt-4 border-t-2 border-gray-200">
                         <div className="flex items-center gap-2">
                           <span className={`w-3 h-3 rounded-full ${priority.color}`}></span>
-                          <span className="text-sm text-gray-900 capitalize font-bold">
-                            {priority.level} priority
-                          </span>
+                          <span className="text-sm text-gray-900 capitalize font-bold">{priority.level} priority</span>
                         </div>
-
                         <div className="flex items-center gap-2">
-                          {(() => {
-                            const status = (request.car_status || 'Created').toLowerCase();
-                            // treat "created" or "draft" as editable
-                            const isDraft = status === 'created' || status === 'draft';
-
-                            if (isDraft) {
-                              // 👉 Draft: View + Edit + Delete
-                              return (
-                                <>
-                                  <button
-                                    onClick={() => openView(request)}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-                                    title="View details"
-                                  >
-                                    <Eye className="w-5 h-5 text-gray-700" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => openEdit(request)}
-                                    disabled={isUpdating}
-                                    className="p-2 hover:bg-indigo-100 rounded-lg transition-all disabled:opacity-50"
-                                    title="Edit"
-                                  >
-                                    <Edit className="w-5 h-5 text-indigo-600" />
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleDelete(request)}
-                                    disabled={isDeleting}
-                                    className="p-2 hover:bg-red-100 rounded-lg transition-all disabled:opacity-50"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="w-5 h-5 text-red-600" />
-                                  </button>
-                                </>
-                              );
-                            }
-
-                            // 👉 Submitted / Approved / Rejected: only View button
-                            return (
-                              <button
-                                onClick={() => openView(request)}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-                                title="View details"
-                              >
-                                <Eye className="w-5 h-5 text-gray-700" />
-                              </button>
-                            );
-                          })()}
-
+                          <button
+                            onClick={() => openEdit(request)}
+                            disabled={isUpdating}
+                            className="p-2 hover:bg-indigo-100 rounded-lg transition-all disabled:opacity-50"
+                            title="Edit"
+                          >
+                            <Edit className="w-5 h-5 text-indigo-600" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(request)}
+                            disabled={isDeleting}
+                            className="p-2 hover:bg-red-100 rounded-lg transition-all disabled:opacity-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-5 h-5 text-red-600" />
+                          </button>
                           <button
                             className="p-2 hover:bg-gray-100 rounded-lg transition-all"
                             title="More options"
@@ -465,31 +405,23 @@ const CarComponent = () => {
         )}
       </div>
 
-      {/* ✅ MODAL: Conditionally render either VIEW or FORM */}
+      {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden">
-            {modalMode === 'view' ? (
-              // 👁️ VIEW MODE: Show CarRequestView (read-only)
-              <CarRequestView
-                carData={editing}
-                onClose={closeModal}
-                onEdit={switchToEdit}  // Allow switching to edit mode
-              />
-            ) : (
-              // ✏️ EDIT/CREATE MODE: Show CarRequestForm
-              <CarRequestForm
-                initialData={editing}
-                onSave={handleSave}
-                onCancel={closeModal}
-              />
-            )}
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <CarRequestForm
+              initialData={editing}
+              onSave={handleSave}
+              onCancel={() => {
+                setModalOpen(false);
+                setEditing(null);
+              }}
+            />
           </div>
         </div>
       )}
-
     </div>
   );
 };
 
-export default CarComponent;
+export default CarRequestContainer;
