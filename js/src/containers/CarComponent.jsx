@@ -6,11 +6,13 @@ import {
   BarChart3, Calendar, MoreVertical,
   DollarSign, RefreshCw, Eye
 } from 'lucide-react';
+
 import {
   useGetCarRequestsQuery,
   useAddCarRequestMutation,
   useUpdateCarRequestMutation,
   useDeleteCarRequestMutation,
+  useCreateCarNumberMutation,
 } from '../reducers/features/CarForm/carRequestApi';
 
 // ✅ Import both the form/wizard and the view component
@@ -31,6 +33,8 @@ const CarComponent = () => {
   const [addCarRequest, { isLoading: isAdding }] = useAddCarRequestMutation();
   const [updateCarRequest, { isLoading: isUpdating }] = useUpdateCarRequestMutation();
   const [deleteCarRequest, { isLoading: isDeleting }] = useDeleteCarRequestMutation();
+  const [createCarNumber] = useCreateCarNumberMutation();
+
 
   // Extract requests from API response
   const requests = apiData?.objects || [];
@@ -91,22 +95,49 @@ const CarComponent = () => {
       if (editing) {
         await updateCarRequest({
           id: editing.cdb_object_id,
-          body: formData
+          ...formData,
         }).unwrap();
         alert('✅ Request updated successfully!');
       } else {
-        await addCarRequest(formData).unwrap();
-        alert('✅ Request created successfully!');
+        console.group('🚗 CREATE CAR FLOW');
+
+        // 1️⃣ CAR number from internal API
+        const numberResp = await createCarNumber().unwrap();
+        console.log('🔢 CAR number API response →', numberResp);
+
+        const car_no = numberResp?.car_no;
+
+        // 2️⃣ Payload + CAR number
+        const payloadWithCarNo = {
+          ...formData,
+          car_no,   // DB column bhi car_no hi hai – good
+        };
+        console.log('📤 Final payload with car_no →', payloadWithCarNo);
+
+        // 3️⃣ Create CAR
+        const created = await addCarRequest(payloadWithCarNo).unwrap();
+        console.log('✅ Created CAR:', created);
+
+        alert(`✅ Request created successfully!\nCAR No: ${car_no || 'N/A'}`);
+
+        console.groupEnd();
       }
+
       setModalOpen(false);
       setEditing(null);
       setModalMode('create');
       refetch();
     } catch (err) {
       console.error('Save failed:', err);
-      alert('❌ Failed to save request: ' + (err.data?.message || err.message || 'Unknown error'));
+      alert(
+        '❌ Failed to save request: ' +
+        (err?.data?.message || err?.message || 'Unknown error')
+      );
     }
   };
+
+
+
 
   const handleDelete = async (request) => {
     if (!window.confirm(`Are you sure you want to delete "${request.project_name}"?`)) return;
