@@ -308,7 +308,7 @@ const Step1BasicInformation = ({ formData, onUpdateField, errors = {} }) => {
 
               {/* Remark / Reason */}
               <div>
-                <label className="block text-base font-bold text-gray-800 mb-1.5">
+                <label className="block text-lg font-bold text-gray-800 mb-1.5">
                   Share Remark/Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea

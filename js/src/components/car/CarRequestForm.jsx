@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, Save, Send, Phone } from 'lucide-react';
 import Step1BasicInformation from './Step1BasicInformation';
 import Step2ProjectDetails from './Step2ProjectDetails';
@@ -52,7 +52,16 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
   });
 
   const [errors, setErrors] = useState({});
+
+
   const [completedSteps, setCompletedSteps] = useState([]);
+
+
+
+
+
+
+
 
   const wizardSteps = [
     { number: 1, title: 'Project Info', subtitle: 'Basic details', component: Step1BasicInformation },
@@ -74,35 +83,37 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
   };
 
   const handleToggleArrayItem = (arrayField, itemId) => {
-  setFormData(prev => {
-    const currentArray = (prev[arrayField] || []).map(String);
-    const id = String(itemId);
+    setFormData(prev => {
+      const currentArray = (prev[arrayField] || []).map(String);
+      const id = String(itemId);
 
-    const newArray = currentArray.includes(id)
-      ? currentArray.filter(v => v !== id)
-      : [...currentArray, id];
+      const newArray = currentArray.includes(id)
+        ? currentArray.filter(v => v !== id)
+        : [...currentArray, id];
 
-    console.log('✅ New array:', arrayField, newArray);
-    return { ...prev, [arrayField]: newArray };
-  });
-};
+      console.log('✅ New array:', arrayField, newArray);
+      return { ...prev, [arrayField]: newArray };
+    });
+  };
 
 
   const handleAddProjectItem = () => {
     console.log('➕ Adding project item...');
     const newItem = {
       description: '',
-      type: 'Local',
-      condition: 'New',
+      sourceId: '',     // 🔹 master se aane wala source_id
+      isNew: 'New',     // 🔹 "New" / "Second Hand"
       quantity: 1,
-      netPrice: 0
+      netPrice: 0,
+      remarks: '',      // 🔹 item wise remarks
     };
-    setFormData(prev => {
+    setFormData((prev) => {
       const newItems = [...(prev.projectItems || []), newItem];
       console.log('✅ New items array:', newItems);
       return { ...prev, projectItems: newItems };
     });
   };
+
 
   const handleUpdateProjectItem = (index, field, value) => {
     console.log('📄 Update project item:', index, field, value);
@@ -311,8 +322,23 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
       project_irr: toFloat(data.projectIRR),
       project_items_json: JSON.stringify(data.projectItems || []),
 
+      // created date: only set on first creation
+      c_date:
+        initialData?.c_date
+          ? String(initialData.c_date)
+          : new Date().toISOString().slice(0, 10),
+
+
+      submitted_on:
+        status === 'submitted'
+          ? (initialData?.submitted_on || new Date().toISOString().slice(0, 10))
+          : null,
+
+
+
       standalone_remark: String(data.standaloneRemark || ''),
       car_status: status === 'draft' ? 'Created' : 'Submitted'
+
     };
 
     console.log('📤 Output:', payload);
@@ -366,7 +392,7 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
         {/* Progress Bar */}
         <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-gray-600">{completionPercentage}% completed</span>
+            <span className="text-lg font-semibold text-gray-600">{completionPercentage}% completed</span>
           </div>
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 transition-all duration-500 ease-out" style={{ width: `${completionPercentage}%` }} />
@@ -398,7 +424,7 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
                   >
                     <div className="flex items-start gap-2">
                       {/* Step Number Badge */}
-                      <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isActive
+                      <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-lg font-bold ${isActive
                         ? 'bg-white text-indigo-600'
                         : isCompleted
                           ? 'bg-indigo-600 text-white'
@@ -408,7 +434,7 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className={`text-xs font-bold truncate ${isActive ? 'text-white' : isCompleted ? 'text-gray-900' : 'text-gray-500'
+                        <h3 className={`text-lg font-bold truncate ${isActive ? 'text-white' : isCompleted ? 'text-gray-900' : 'text-gray-500'
                           }`}>
                           {step.title}
                         </h3>
@@ -425,7 +451,7 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
 
             {/* Support Button */}
             <div className="p-3 border-t border-gray-200">
-              <button className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-xs font-semibold text-gray-700">
+              <button className="w-full py-2 px-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-lg font-semibold text-gray-700">
                 <Phone className="w-4 h-4" />
                 Support
               </button>
@@ -497,6 +523,7 @@ const CarRequestForm = ({ initialData = null, onSave, onCancel }) => {
                 </button>
               )}
             </div>
+
           </div>
         </div>
 

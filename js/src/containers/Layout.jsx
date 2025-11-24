@@ -237,10 +237,10 @@ const LayoutContent = () => {
             </div>
 
             {/* Notifications */}
-            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-all duration-200 group">
+            {/* <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-all duration-200 group">
               <Bell className="w-5 h-5 text-gray-600 group-hover:text-blue-600" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-            </button>
+            </button> */}
 
             {/* User menu */}
             <div className="flex items-center gap-2 ml-2 px-3 py-2 hover:bg-gray-50 rounded-lg transition-all duration-200 cursor-pointer group">

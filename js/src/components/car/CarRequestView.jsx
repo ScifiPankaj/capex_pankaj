@@ -1,34 +1,24 @@
 // src/components/car/CarRequestView.jsx
 import React from 'react';
 import {
-  X,
+  ArrowLeft,
+  Edit,
+  Printer,
+  Download,
+  Share2,
   Building2,
-  User,
   Calendar,
   FileText,
-  DollarSign,
-  TrendingUp,
   Package,
+  Leaf,
+  Clock,
   CheckCircle,
   XCircle,
-  Clock,
-  Leaf,
   AlertCircle,
-  Download,
-  Printer,
-  Share2,
-  Edit,
-  ArrowLeft,
-  Info,
-  MapPin,
-  Briefcase,
-  Target,
-  Award,
+  IndianRupee,
   ShoppingCart,
-  IndianRupee
 } from 'lucide-react';
 
-// ✅ Import master data hooks to resolve IDs to names
 import {
   useGetPlantsQuery,
   useGetRequirementsQuery,
@@ -37,576 +27,546 @@ import {
   useGetEsgImpactsQuery,
 } from '../../reducers/features/masters/mastersApi';
 
-/**
- * CarRequestView Component
- * Enhanced read-only comprehensive view with master data integration
- */
+import { useGetCarItemsQuery } from '../../reducers/features/CarForm/carRequestApi';
+
 const CarRequestView = ({ carData, onClose, onEdit }) => {
-  // ============================================================
-  // FETCH MASTER DATA
-  // ============================================================
+  // ---------- MASTER DATA ----------
   const { data: plantsData } = useGetPlantsQuery();
   const { data: requirementsData } = useGetRequirementsQuery();
   const { data: natureAssetsData } = useGetNatureAssetsQuery();
   const { data: itemSourcesData } = useGetItemSourcesQuery();
   const { data: esgImpactsData } = useGetEsgImpactsQuery();
 
-  // Extract arrays from API responses
+  // CAR ITEMS (car_item_type table)
+  const { data: allCarItemsData, isLoading: itemsLoading } = useGetCarItemsQuery();
+
   const plants = plantsData?.objects || [];
   const requirements = requirementsData?.objects || [];
   const natureAssets = natureAssetsData?.objects || [];
   const itemSources = itemSourcesData?.objects || [];
   const esgImpacts = esgImpactsData?.objects || [];
+  const allCarItems = allCarItemsData || [];
 
-  // ============================================================
-  // HELPER FUNCTIONS
-  // ============================================================
-
-  /**
-   * Format currency for display
-   */
+  // ---------- HELPERS ----------
   const formatCurrency = (amount) => {
     const num = parseFloat(amount) || 0;
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(num);
   };
 
-  /**
-   * Format date for display
-   */
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', {
+      const d = new Date(dateString);
+      return d.toLocaleDateString('en-IN', {
         year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+        month: 'short',
+        day: 'numeric',
       });
     } catch {
       return dateString;
     }
   };
 
-  /**
-   * Get status badge styling
-   */
-  const getStatusStyle = (status) => {
-    const statusMap = {
-      'Created': {
+  const parseIds = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.map(String);
+    return String(val)
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+  };
+
+  const getPlantName = (plantCode) => {
+    const p = plants.find((pl) => String(pl.plant_code) === String(plantCode));
+    return p ? p.plant_name || p.name : plantCode || 'N/A';
+  };
+
+  const getRequirementNames = (codes) => {
+    const arr = parseIds(codes);
+    return arr.map((code) => {
+      const r = requirements.find((rq) => String(rq.requirement_code) === String(code));
+      return r ? r.requirement_name || r.name : `Req ${code}`;
+    });
+  };
+
+  const getNatureAssetNames = (ids) => {
+    const arr = parseIds(ids);
+    return arr.map((id) => {
+      const na = natureAssets.find((a) => String(a.nature_asset_id) === String(id));
+      return na ? na.asset_name || na.name : `Asset ${id}`;
+    });
+  };
+
+  const getEsgImpactNames = (ids) => {
+    const arr = parseIds(ids);
+    return arr.map((id) => {
+      const e = esgImpacts.find((x) => String(x.esg_id) === String(id));
+      return e ? e.name : `ESG ${id}`;
+    });
+  };
+
+  const getSourceName = (sourceId) => {
+    if (!sourceId && sourceId !== 0) return 'N/A';
+    const s = itemSources.find((src) => String(src.source_id) === String(sourceId));
+    return s ? s.source_name || s.name : `Source ${sourceId}`;
+  };
+
+  const getStatusInfo = (status) => {
+    const s = status || 'Created';
+    const map = {
+      Created: {
+        label: 'Draft',
         bg: 'bg-blue-100',
         text: 'text-blue-800',
         border: 'border-blue-300',
-        icon: Clock,
-        label: 'Draft'
+        Icon: Clock,
       },
-      'Submitted': {
+      Submitted: {
+        label: 'Pending',
         bg: 'bg-orange-100',
         text: 'text-orange-800',
         border: 'border-orange-300',
-        icon: Clock,
-        label: 'Pending Approval'
+        Icon: Clock,
       },
-      'Approved': {
+      Approved: {
+        label: 'Approved',
         bg: 'bg-green-100',
         text: 'text-green-800',
         border: 'border-green-300',
-        icon: CheckCircle,
-        label: 'Approved'
+        Icon: CheckCircle,
       },
-      'Rejected': {
+      Rejected: {
+        label: 'Rejected',
         bg: 'bg-red-100',
         text: 'text-red-800',
         border: 'border-red-300',
-        icon: XCircle,
-        label: 'Rejected'
+        Icon: XCircle,
       },
     };
-    return statusMap[status] || statusMap['Created'];
+    return map[s] || map.Created;
   };
 
-  /**
-   * Parse project items from JSON string
-   */
-  const getProjectItems = () => {
+  // ---------- ITEMS: from car_item_type, fallback to JSON ----------
+  const normalizeItems = () => {
+    const carNoInt = parseInt(carData.car_no, 10);
+    let linked = [];
+
+    if (!Number.isNaN(carNoInt)) {
+      linked = allCarItems.filter((it) => {
+        const itemCarNo = parseInt(it.car_no, 10);
+        return !Number.isNaN(itemCarNo) && itemCarNo === carNoInt;
+      });
+    }
+
+    if (linked.length > 0) {
+      return linked.map((it) => {
+        const qty = it.qty ?? it.quantity ?? 0;
+        const price = it.net_price ?? it.netPrice ?? 0;
+        const cond =
+          typeof it.is_new !== 'undefined'
+            ? it.is_new === 1
+              ? 'New'
+              : 'Second Hand'
+            : it.condition || 'New';
+        const srcId = it.source_id ?? it.sourceId ?? null;
+
+        return {
+          description: it.description_text || it.description || '',
+          quantity: qty,
+          netPrice: price,
+          condition: cond,
+          remarks: it.remarks || '',
+          sourceId: srcId,
+          sourceName: getSourceName(srcId),
+        };
+      });
+    }
+
+    // fallback: project_items_json
     try {
       if (typeof carData.project_items_json === 'string') {
-        return JSON.parse(carData.project_items_json);
+        const raw = JSON.parse(carData.project_items_json) || [];
+        return raw.map((it) => {
+          const qty = it.qty ?? it.quantity ?? 0;
+          const price = it.net_price ?? it.netPrice ?? 0;
+          const cond = it.isNew || it.condition || 'New';
+          const srcId = it.source_id ?? it.sourceId ?? null;
+
+          return {
+            description: it.description || it.description_text || '',
+            quantity: qty,
+            netPrice: price,
+            condition: cond,
+            remarks: it.remarks || '',
+            sourceId: srcId,
+            sourceName: getSourceName(srcId),
+          };
+        });
       }
-      return carData.project_items_json || [];
-    } catch {
-      return [];
+    } catch (e) {
+      console.error('Error parsing project_items_json', e);
     }
+
+    return [];
   };
 
-  /**
-   * Calculate item total
-   */
-  const calculateItemTotal = (item) => {
-    return (parseFloat(item.qty || 0) * parseFloat(item.net_price || 0));
-  };
+  const projectItems = normalizeItems();
+  const itemsTotal = projectItems.reduce(
+    (sum, it) => sum + (parseFloat(it.quantity || 0) * parseFloat(it.netPrice || 0)),
+    0
+  );
 
-  /**
-   * Get priority level based on cost
-   */
-  const getPriorityLevel = () => {
-    const cost = parseFloat(carData.new_project_cost) || 0;
-    if (cost > 5000000) {
-      return { level: 'High Priority', color: 'text-red-600', bg: 'bg-red-50', icon: '🔴' };
-    }
-    if (cost > 1000000) {
-      return { level: 'Medium Priority', color: 'text-yellow-600', bg: 'bg-yellow-50', icon: '🟡' };
-    }
-    return { level: 'Low Priority', color: 'text-green-600', bg: 'bg-green-50', icon: '🟢' };
-  };
+  const statusInfo = getStatusInfo(carData.car_status);
+  const { Icon: StatusIcon } = statusInfo;
 
-  /**
-   * Parse comma-separated IDs to array
-   */
-  const parseIdArray = (field) => {
-    if (!field) return [];
-    if (Array.isArray(field)) return field;
-    return String(field).split(',').filter(Boolean);
-  };
+  const natureNames = getNatureAssetNames(carData.nature_asset_ids);
+  const requirementNames = getRequirementNames(carData.requirement_code);
+  const esgNames = getEsgImpactNames(carData.esg_ids);
 
-  // ✅ NEW: Get plant name by code
-  const getPlantName = (plantCode) => {
-    const plant = plants.find(p => p.plant_code === plantCode);
-    return plant ? plant.plant_name || plant.name : plantCode;
-  };
+  const handlePrint = () => window.print();
+  const handleDownload = () => alert('Download as PDF – TODO');
+  const handleShare = () => alert('Share – TODO');
 
-  // ✅ NEW: Get requirement name by code
-  const getRequirementName = (reqCode) => {
-    const req = requirements.find(r => r.requirement_code === reqCode);
-    return req ? req.requirement_name || req.name : reqCode;
-  };
-
-  // ✅ NEW: Get nature asset names by IDs
-  const getNatureAssetNames = (ids) => {
-    const idArray = parseIdArray(ids);
-    return idArray.map(id => {
-      const asset = natureAssets.find(a => a.nature_asset_id === parseInt(id));
-      return asset ? asset.asset_name || asset.name : `Asset ID: ${id}`;
-    });
-  };
-
-  // ✅ NEW: Get ESG impact names by IDs
-  const getEsgImpactNames = (ids) => {
-    const idArray = parseIdArray(ids);
-    return idArray.map(id => {
-      const esg = esgImpacts.find(e => e.esg_id === parseInt(id));
-      return esg ? esg.name : `ESG ID: ${id}`;
-    });
-  };
-
-  // ============================================================
-  // DATA EXTRACTION
-  // ============================================================
-
-  const statusStyle = getStatusStyle(carData.car_status);
-  const StatusIcon = statusStyle.icon;
-  const projectItems = getProjectItems();
-  const priority = getPriorityLevel();
-  const natureAssetNames = getNatureAssetNames(carData.nature_asset_ids);
-  const esgImpactNames = getEsgImpactNames(carData.esg_ids);
-
-  // ============================================================
-  // ACTION HANDLERS
-  // ============================================================
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownload = () => {
-    alert('Download as PDF feature coming soon!');
-  };
-
-  const handleShare = () => {
-    alert('Share feature coming soon!');
-  };
-
-  // ============================================================
-  // RENDER
-  // ============================================================
-
+  // ---------- RENDER ----------
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white px-8 py-6 border-b-2 border-gray-200 shadow-sm sticky top-0 z-10 no-print">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Close"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">
+    <div className="h-full max-h-[90vh] flex flex-col bg-slate-50 overflow-y-auto text-base">
+      {/* HEADER */}
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-white no-print">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md hover:bg-gray-100"
+            title="Close"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-700" />
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-gray-900">
                 {carData.project_name || 'Untitled Project'}
               </h2>
-              <div className="flex items-center gap-3 mt-2">
-                <p className="text-gray-600 font-medium">
-                  CAR #{carData.car_no || 'N/A'}
-                </p>
-                <span className={`px-4 py-1.5 rounded-full text-sm font-bold border-2 flex items-center gap-2 ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
-                  <StatusIcon className="w-4 h-4" />
-                  {statusStyle.label}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
-              title="Print"
-            >
-              <Printer className="w-5 h-5" />
-              Print
-            </button>
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
-              title="Download PDF"
-            >
-              <Download className="w-5 h-5" />
-              Download
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
-              title="Share"
-            >
-              <Share2 className="w-5 h-5" />
-              Share
-            </button>
-            {onEdit && (carData.car_status === 'Created' || !carData.car_status) && (
-              <button
-                onClick={onEdit}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
-                title="Edit Request"
+              <span
+                className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full border ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
               >
-                <Edit className="w-5 h-5" />
-                Edit Request
-              </button>
-            )}
+                <StatusIcon className="w-4 h-4" />
+                {statusInfo.label}
+              </span>
+            </div>
+            <p className="text-base text-gray-600 mt-1">
+              CAR #{carData.car_no || 'N/A'} · {getPlantName(carData.plant_code)} ·{' '}
+              {carData.dept || 'N/A'}
+            </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handlePrint}
+            className="p-2 rounded-md hover:bg-gray-100"
+            title="Print"
+          >
+            <Printer className="w-5 h-5 text-gray-700" />
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-2 rounded-md hover:bg-gray-100"
+            title="Download"
+          >
+            <Download className="w-5 h-5 text-gray-700" />
+          </button>
+          <button
+            onClick={handleShare}
+            className="p-2 rounded-md hover:bg-gray-100"
+            title="Share"
+          >
+            <Share2 className="w-5 h-5 text-gray-700" />
+          </button>
+          {onEdit && (carData.car_status === 'Created' || !carData.car_status) && (
+            <button
+              onClick={onEdit}
+              className="ml-1 px-4 py-2 rounded-md bg-indigo-600 text-white text-base font-semibold hover:bg-indigo-700"
+            >
+              <Edit className="w-4 h-4 inline-block mr-1" />
+              Edit
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Top Stats Row */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-5 shadow-sm border-2 border-gray-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <IndianRupee className="w-6 h-6 text-green-600" />
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">Total Cost</p>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(carData.new_project_cost)}</p>
+      {/* MAIN SCROLL AREA */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto space-y-5">
+          {/* SUMMARY ROW */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg border px-4 py-3">
+              <p className="text-base font-semibold text-gray-600 mb-1 flex items-center gap-2">
+                <IndianRupee className="w-4 h-4" />
+                Total Cost
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(carData.new_project_cost || itemsTotal)}
+              </p>
             </div>
-
-            <div className="bg-white rounded-xl p-5 shadow-sm border-2 border-gray-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">Payback Period</p>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{carData.payback_period || 'N/A'} years</p>
+            <div className="bg-white rounded-lg border px-4 py-3">
+              <p className="text-base font-semibold text-gray-600 mb-1">
+                Payback (Years)
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {carData.payback_period || 'N/A'}
+              </p>
             </div>
-
-            <div className="bg-white rounded-xl p-5 shadow-sm border-2 border-gray-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Target className="w-6 h-6 text-blue-600" />
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">Project IRR</p>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{carData.project_irr || 'N/A'}%</p>
+            <div className="bg-white rounded-lg border px-4 py-3">
+              <p className="text-base font-semibold text-gray-600 mb-1">
+                Project IRR (%)
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {carData.project_irr || 'N/A'}
+              </p>
             </div>
-
-            <div className="bg-white rounded-xl p-5 shadow-sm border-2 border-gray-200">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-orange-600" />
-                </div>
-                <p className="text-xs font-semibold text-gray-500 uppercase">Project Items</p>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{projectItems.length}</p>
+            <div className="bg-white rounded-lg border px-4 py-3">
+              <p className="text-base font-semibold text-gray-600 mb-1 flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                Items
+              </p>
+              <p className="text-xl font-bold text-gray-900">
+                {itemsLoading ? '...' : projectItems.length}
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
-            {/* Left Column - 2/3 width */}
-            <div className="col-span-2 space-y-6">
-              {/* Basic Information */}
-              <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Building2 className="w-5 h-5" />
+          {/* PROJECT ITEMS */}
+          <div className="bg-white rounded-xl border shadow-sm">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-emerald-600 to-green-600">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-white" />
+                <h3 className="text-lg font-semibold text-white">Project Items</h3>
+              </div>
+              <div className="text-base text-emerald-50">
+                Total:{' '}
+                <span className="font-bold text-white">
+                  {formatCurrency(itemsTotal)}
+                </span>
+              </div>
+            </div>
+
+            {itemsLoading ? (
+              <div className="p-4 text-base text-gray-500">Loading items...</div>
+            ) : projectItems.length === 0 ? (
+              <div className="p-4 text-base text-gray-500">
+                No items found for this CAR.
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-auto">
+                <table className="w-full text-base">
+                  <thead className="bg-slate-100 text-base text-gray-700 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold w-10">#</th>
+                      <th className="px-4 py-2 text-left font-semibold">Description</th>
+                      <th className="px-4 py-2 text-left font-semibold">Source</th>
+                      <th className="px-4 py-2 text-left font-semibold whitespace-nowrap">
+                        Condition
+                      </th>
+                      <th className="px-4 py-2 text-right font-semibold">Qty</th>
+                      <th className="px-4 py-2 text-right font-semibold whitespace-nowrap">
+                        Unit Price
+                      </th>
+                      <th className="px-4 py-2 text-right font-semibold whitespace-nowrap">
+                        Line Total
+                      </th>
+                      <th className="px-4 py-2 text-left font-semibold">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {projectItems.map((item, idx) => {
+                      const lineTotal =
+                        (parseFloat(item.quantity || 0) || 0) *
+                        (parseFloat(item.netPrice || 0) || 0);
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="px-4 py-2 text-gray-700">{idx + 1}</td>
+                          <td className="px-4 py-2 text-gray-900 font-medium">
+                            {item.description || '-'}
+                          </td>
+                          <td className="px-4 py-2 text-gray-800">
+                            {item.sourceName}
+                          </td>
+                          <td className="px-4 py-2 text-gray-800">
+                            {item.condition}
+                          </td>
+                          <td className="px-4 py-2 text-right text-gray-900">
+                            {item.quantity || 0}
+                          </td>
+                          <td className="px-4 py-2 text-right text-gray-900">
+                            {formatCurrency(item.netPrice || 0)}
+                          </td>
+                          <td className="px-4 py-2 text-right font-semibold text-emerald-700">
+                            {formatCurrency(lineTotal)}
+                          </td>
+                          <td className="px-4 py-2 text-gray-800">
+                            {item.remarks || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* DETAILS GRID */}
+          <div className="grid grid-cols-3 gap-4">
+            {/* LEFT: Basic + Project + ESG */}
+            <div className="col-span-2 space-y-4">
+              {/* Basic Info */}
+              <div className="bg-white rounded-xl border shadow-sm">
+                <div className="px-4 py-3 border-b bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-white">
                     Basic Information
                   </h3>
                 </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        Plant Code
-                      </p>
-                      <p className="text-lg font-bold text-gray-900">{carData.plant_code || 'N/A'}</p>
-                      {/* ✅ Show plant name */}
-                      <p className="text-sm text-gray-600 mt-1">{getPlantName(carData.plant_code)}</p>
-                    </div>
 
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <Building2 className="w-4 h-4" />
-                        SAP Plant Code
-                      </p>
-                      <p className="text-lg font-bold text-gray-900">{carData.sap_plant_code || 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <Briefcase className="w-4 h-4" />
-                        Department
-                      </p>
-                      <p className="text-lg font-bold text-gray-900">{carData.dept || 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        Requester Name
-                      </p>
-                      <p className="text-lg font-bold text-gray-900">{carData.requester_name || 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2">Budget Category</p>
-                      <p className="text-lg font-bold text-gray-900">{carData.budget_category || 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2">Capital Budget</p>
-                      <p className="text-lg font-bold text-gray-900">
-                        {carData.is_capital_budget === '1' || carData.is_capital_budget === 'yes' ? 'Yes' : 'No'}
-                      </p>
-                    </div>
+                <div className="px-4 py-4 grid grid-cols-2 gap-4 text-base">
+                  <div>
+                    <p className="text-base text-gray-600">Plant</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.plant_code || 'N/A'} · {getPlantName(carData.plant_code)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600">Department</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.dept || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600">Requester</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.requester_name || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600">Commissioning Date</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {formatDate(carData.date_comm)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600">Budget Category</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.budget_category || 'CAPEX'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600">Capital Budget</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.is_capital_budget === '1' ||
+                      carData.is_capital_budget === 1
+                        ? 'Yes'
+                        : 'No'}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Project Details */}
-              <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
+              <div className="bg-white rounded-xl border shadow-sm">
+                <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-600 to-cyan-600 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-white">
                     Project Details
                   </h3>
                 </div>
-                <div className="p-6 space-y-4">
+
+                <div className="px-4 py-4 space-y-3 text-base">
                   <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-2">Project Name</p>
-                    <p className="text-lg font-bold text-gray-900">{carData.project_name || 'N/A'}</p>
+                    <p className="text-base text-gray-600">Project Name</p>
+                    <p className="mt-1 font-semibold text-gray-900">
+                      {carData.project_name || 'N/A'}
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  {natureNames.length > 0 && (
                     <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        Commissioning Date
-                      </p>
-                      <p className="text-base font-bold text-gray-900">{formatDate(carData.date_comm)}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2">Part of Project</p>
-                      <p className="text-base font-bold text-gray-900">
-                        {carData.ispart_project === 1 || carData.ispart_project === '1' ? 'Yes' : 'No'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* ✅ Show Nature of Assets with NAMES */}
-                  {natureAssetNames.length > 0 && (
-                    <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                      <p className="text-base text-gray-600 mb-1 flex items-center gap-2">
                         <Package className="w-4 h-4" />
-                        Nature of Assets ({natureAssetNames.length})
+                        Nature of Assets
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {natureAssetNames.map((name, index) => (
+                        {natureNames.map((n, i) => (
                           <span
-                            key={index}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-semibold border border-blue-200"
+                            key={i}
+                            className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-base font-semibold"
                           >
-                            {name}
+                            {n}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* ✅ Show Requirement Type with NAME */}
-                  {carData.requirement_code && (
+                  {requirementNames.length > 0 && (
                     <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Requirement Type
-                      </p>
-                      <span className="inline-block px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-sm font-semibold border border-purple-200">
-                        {getRequirementName(carData.requirement_code)}
-                      </span>
+                      <p className="text-base text-gray-600 mb-1">Requirement Type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {requirementNames.map((n, i) => (
+                          <span
+                            key={i}
+                            className="px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-base font-semibold"
+                          >
+                            {n}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
                   {carData.justification && (
                     <div>
-                      <p className="text-sm font-semibold text-gray-500 mb-3">Justification</p>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                          {carData.justification}
-                        </p>
+                      <p className="text-base text-gray-600 mb-1">Justification</p>
+                      <div className="bg-slate-50 border rounded-md px-3 py-2 text-base text-gray-800 whitespace-pre-wrap">
+                        {carData.justification}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* ✅ Enhanced Project Items Table */}
-              {projectItems.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
-                  <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5" />
-                      Project Items Details ({projectItems.length} items)
-                    </h3>
+              {/* ESG */}
+              {(esgNames.length > 0 || carData.esg_impact_details) && (
+                <div className="bg-white rounded-xl border shadow-sm">
+                  <div className="px-4 py-3 border-b bg-gradient-to-r from-green-600 to-emerald-600 flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-white" />
+                    <h3 className="text-lg font-semibold text-white">ESG Impact</h3>
                   </div>
-                  <div className="p-6">
-                    <div className="space-y-4">
-                      {projectItems.map((item, index) => (
-                        <div
-                          key={index}
-                          className="border-2 border-gray-200 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white hover:shadow-md transition-all"
-                        >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                <span className="text-emerald-600 font-bold">{index + 1}</span>
-                              </div>
-                              <div>
-                                <p className="text-base font-bold text-gray-900">
-                                  {item.description || 'Untitled Item'}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-semibold">
-                                    {item.type || 'N/A'}
-                                  </span>
-                                  <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-semibold">
-                                    {item.condition || 'New'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500 font-semibold">Item Total</p>
-                              <p className="text-xl font-bold text-emerald-600">
-                                {formatCurrency(calculateItemTotal(item))}
-                              </p>
-                            </div>
-                          </div>
 
-                          <div className="grid grid-cols-3 gap-4 pt-3 border-t border-gray-200">
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 font-semibold mb-1">Quantity</p>
-                              <p className="text-lg font-bold text-gray-900">
-                                {item.qty || 0}
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 font-semibold mb-1">Unit Price</p>
-                              <p className="text-lg font-bold text-gray-900">
-                                {formatCurrency(item.net_price || 0)}
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 font-semibold mb-1">Line Total</p>
-                              <p className="text-lg font-bold text-emerald-600">
-                                {formatCurrency(calculateItemTotal(item))}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Grand Total */}
-                    <div className="mt-6 pt-4 border-t-2 border-gray-300">
-                      <div className="flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50 p-5 rounded-xl border-2 border-emerald-200">
-                        <span className="text-xl font-bold text-gray-900">Grand Total:</span>
-                        <span className="text-3xl font-bold text-emerald-600">
-                          {formatCurrency(carData.new_project_cost)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ✅ ESG Impact with NAMES */}
-              {(esgImpactNames.length > 0 || carData.esg_impact_details) && (
-                <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
-                  <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Leaf className="w-5 h-5" />
-                      ESG Impact Assessment
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-4">
-                    {esgImpactNames.length > 0 && (
+                  <div className="px-4 py-4 space-y-3 text-base">
+                    {esgNames.length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
-                          <Award className="w-4 h-4" />
-                          ESG Categories ({esgImpactNames.length})
-                        </p>
+                        <p className="text-base text-gray-600 mb-1">Categories</p>
                         <div className="flex flex-wrap gap-2">
-                          {esgImpactNames.map((name, index) => (
+                          {esgNames.map((n, i) => (
                             <span
-                              key={index}
-                              className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm font-semibold border border-green-200"
+                              key={i}
+                              className="px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 text-base font-semibold"
                             >
-                              {name}
+                              {n}
                             </span>
                           ))}
                         </div>
                       </div>
                     )}
-
                     {carData.esg_impact_details && (
-                      <div className={esgImpactNames.length > 0 ? 'pt-4 border-t border-gray-200' : ''}>
-                        <p className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
-                          <Leaf className="w-4 h-4" />
-                          ESG Impact Details
-                        </p>
-                        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                          <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                            {carData.esg_impact_details}
-                          </p>
+                      <div>
+                        <p className="text-base text-gray-600 mb-1">Details</p>
+                        <div className="bg-green-50 border border-green-200 rounded-md px-3 py-2 text-base text-gray-800 whitespace-pre-wrap">
+                          {carData.esg_impact_details}
                         </div>
                       </div>
                     )}
@@ -615,122 +575,127 @@ const CarRequestView = ({ carData, onClose, onEdit }) => {
               )}
             </div>
 
-            {/* Right Column - 1/3 width */}
-            <div className="col-span-1 space-y-6">
-              {/* Status Timeline */}
-              <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden sticky top-24">
-                <div className="bg-gradient-to-r from-pink-600 to-rose-600 px-6 py-4">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Request Status
+            {/* RIGHT: Cost + Status */}
+            <div className="col-span-1 space-y-4">
+              {/* Cost Structure */}
+              <div className="bg-white rounded-xl border shadow-sm">
+                <div className="px-4 py-3 border-b bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center gap-2">
+                  <IndianRupee className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-white">
+                    Cost Structure
                   </h3>
                 </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${statusStyle.bg}`}>
-                        <StatusIcon className={`w-6 h-6 ${statusStyle.text}`} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-500">Current Status</p>
-                        <p className={`text-lg font-bold ${statusStyle.text}`}>
-                          {statusStyle.label}
-                        </p>
-                      </div>
-                    </div>
 
-                    {carData.created_at && (
-                      <div className="pt-4 border-t border-gray-200">
-                        <p className="text-sm font-semibold text-gray-500 mb-1">Created On</p>
-                        <p className="text-sm font-bold text-gray-900">{formatDate(carData.created_at)}</p>
-                      </div>
-                    )}
-
-                    {carData.updated_at && (
-                      <div className="pt-4 border-t border-gray-200">
-                        <p className="text-sm font-semibold text-gray-500 mb-1">Last Updated</p>
-                        <p className="text-sm font-bold text-gray-900">{formatDate(carData.updated_at)}</p>
-                      </div>
-                    )}
-
-                    {carData.cdb_object_id && (
-                      <div className="pt-4 border-t border-gray-200">
-                        <p className="text-sm font-semibold text-gray-500 mb-1">Object ID</p>
-                        <p className="text-xs font-mono text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 break-all">
-                          {carData.cdb_object_id}
-                        </p>
-                      </div>
-                    )}
+                <div className="px-4 py-4 space-y-2 text-base">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base text-gray-600">
+                      Part of Existing Project
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {carData.ispart_project === 1 ||
+                      carData.ispart_project === '1'
+                        ? 'Yes'
+                        : 'No'}
+                    </span>
                   </div>
+                  {carData.ispart_project === 1 || carData.ispart_project === '1' ? (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base text-gray-600">
+                          Original Project Cost
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(carData.original_project_cost || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base text-gray-600">
+                          Total Appropriation
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(carData.total_appropriation_cost || 0)}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-base text-gray-600">
+                          New Project Cost
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(carData.new_project_cost || itemsTotal)}
+                        </span>
+                      </div>
+                      {carData.standalone_remark && (
+                        <div className="mt-2">
+                          <p className="text-base text-gray-600 mb-1">
+                            Standalone Remark
+                          </p>
+                          <div className="bg-slate-50 border rounded-md px-3 py-2 text-base text-gray-800 whitespace-pre-wrap">
+                            {carData.standalone_remark}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Financial Summary */}
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl p-6 shadow-lg text-white">
-                <h4 className="text-sm font-semibold text-white/80 mb-4 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
-                  FINANCIAL SUMMARY
-                </h4>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs text-white/70 mb-1">Total Project Cost</p>
-                    <p className="text-3xl font-bold">{formatCurrency(carData.new_project_cost)}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
+              {/* Status / Meta */}
+              <div className="bg-white rounded-xl border shadow-sm">
+                <div className="px-4 py-3 border-b bg-gradient-to-r from-pink-600 to-rose-600 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-white">Status</h3>
+                </div>
+
+                <div className="px-4 py-4 space-y-3 text-base">
+                  {carData.created_at && (
                     <div>
-                      <p className="text-xs text-white/70 mb-1">Payback</p>
-                      <p className="text-lg font-bold">{carData.payback_period || 'N/A'}y</p>
+                      <p className="text-base text-gray-600 mb-1">Created On</p>
+                      <p className="font-semibold text-gray-900">
+                        {formatDate(carData.created_at)}
+                      </p>
                     </div>
+                  )}
+                  {carData.updated_at && (
                     <div>
-                      <p className="text-xs text-white/70 mb-1">IRR</p>
-                      <p className="text-lg font-bold">{carData.project_irr || 'N/A'}%</p>
+                      <p className="text-base text-gray-600 mb-1">Last Updated</p>
+                      <p className="font-semibold text-gray-900">
+                        {formatDate(carData.updated_at)}
+                      </p>
                     </div>
-                  </div>
+                  )}
+                  {carData.cdb_object_id && (
+                    <div>
+                      <p className="text-base text-gray-600 mb-1">Object ID</p>
+                      <p className="text-xs font-mono text-gray-700 bg-slate-50 border rounded px-2 py-1 break-all">
+                        {carData.cdb_object_id}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Priority Badge */}
-              <div className={`rounded-xl p-6 shadow-sm border-2 ${priority.bg}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-full ${priority.bg} flex items-center justify-center text-2xl border-2 ${priority.color} border-opacity-30`}>
-                    {priority.icon}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase">Priority Level</p>
-                    <p className={`text-lg font-bold ${priority.color}`}>
-                      {priority.level}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Notice */}
-              <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                <div className="flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-blue-900 mb-1">Information</p>
-                    <p className="text-xs text-blue-800 leading-relaxed">
-                      This is a read-only view of the CAR request. To make changes, click the "Edit Request" button above.
-                    </p>
-                  </div>
-                </div>
+              {/* Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-base text-blue-900 flex gap-3">
+                <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <p>
+                  This is a read-only view of the CAR request. Use the{' '}
+                  <span className="font-semibold">Edit</span> button in the header to
+                  modify details.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Print Styles */}
+      {/* PRINT STYLES */}
       <style>{`
         @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
+          .no-print { display: none !important; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
     </div>

@@ -106,6 +106,7 @@ const Step3FinancialDetails = ({
         <div className="space-y-3">
 
           {/* Project Items Section */}
+          {/* Project Items Section */}
           <div className="bg-white border-2 border-gray-300 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -114,17 +115,19 @@ const Step3FinancialDetails = ({
               </div>
               <button
                 onClick={onAddProjectItem}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors text-lg font-bold shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-lg font-bold shadow-sm"
               >
                 <Plus className="w-3 h-3" />
                 Add Item
               </button>
             </div>
 
-            {/* Project Items List */}
             <div className="space-y-2">
               {(formData.projectItems || []).map((item, itemIndex) => (
-                <div key={itemIndex} className="p-2 border border-gray-200 rounded-md bg-gray-50">
+                <div
+                  key={itemIndex}
+                  className="p-2 border border-gray-200 rounded-md bg-gray-50"
+                >
                   {/* Item Header */}
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-bold text-gray-700 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -141,8 +144,8 @@ const Step3FinancialDetails = ({
                     )}
                   </div>
 
-                  {/* Item Fields Grid */}
-                  <div className="grid grid-cols-6 gap-2">
+                  {/* Fields grid */}
+                  <div className="grid grid-cols-7 gap-2">
                     {/* Description */}
                     <div className="col-span-3">
                       <label className="block text-[10px] font-bold text-gray-700 mb-1">
@@ -151,13 +154,15 @@ const Step3FinancialDetails = ({
                       <input
                         type="text"
                         value={item.description || ''}
-                        onChange={(e) => onUpdateProjectItem(itemIndex, 'description', e.target.value)}
+                        onChange={(e) =>
+                          onUpdateProjectItem(itemIndex, 'description', e.target.value)
+                        }
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
                         placeholder="Item description"
                       />
                     </div>
 
-                    {/* Type (Source) */}
+                    {/* Source */}
                     <div>
                       <label className="block text-[10px] font-bold text-gray-700 mb-1">
                         Source <span className="text-red-500">*</span>
@@ -168,24 +173,44 @@ const Step3FinancialDetails = ({
                         </div>
                       ) : (
                         <select
-                          value={item.type || 'Local'}
-                          onChange={(e) => onUpdateProjectItem(itemIndex, 'type', e.target.value)}
+                          value={item.sourceId || ''}
+                          onChange={(e) =>
+                            onUpdateProjectItem(itemIndex, 'sourceId', e.target.value)
+                          }
                           className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
                         >
+                          <option value="">-- Select --</option>
                           {itemSourcesList.length === 0 ? (
                             <>
-                              <option value="Local">Local</option>
-                              <option value="Import">Import</option>
+                              <option value="1">Local</option>
+                              <option value="2">Import</option>
                             </>
                           ) : (
                             itemSourcesList.map((source) => (
-                              <option key={source.source_id} value={source.source_name || source.name}>
+                              <option key={source.source_id} value={source.source_id}>
                                 {source.source_name || source.name}
                               </option>
                             ))
                           )}
                         </select>
                       )}
+                    </div>
+
+                    {/* Condition (New / Second Hand) */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-700 mb-1">
+                        Condition
+                      </label>
+                      <select
+                        value={item.isNew || 'New'}
+                        onChange={(e) =>
+                          onUpdateProjectItem(itemIndex, 'isNew', e.target.value)
+                        }
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
+                      >
+                        <option value="New">New</option>
+                        <option value="Second Hand">Second Hand</option>
+                      </select>
                     </div>
 
                     {/* Quantity */}
@@ -196,7 +221,9 @@ const Step3FinancialDetails = ({
                       <input
                         type="number"
                         value={item.quantity || 0}
-                        onChange={(e) => onUpdateProjectItem(itemIndex, 'quantity', e.target.value)}
+                        onChange={(e) =>
+                          onUpdateProjectItem(itemIndex, 'quantity', e.target.value)
+                        }
                         min="1"
                         step="1"
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
@@ -211,7 +238,9 @@ const Step3FinancialDetails = ({
                       <input
                         type="number"
                         value={item.netPrice || 0}
-                        onChange={(e) => onUpdateProjectItem(itemIndex, 'netPrice', e.target.value)}
+                        onChange={(e) =>
+                          onUpdateProjectItem(itemIndex, 'netPrice', e.target.value)
+                        }
                         min="0"
                         step="0.01"
                         className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
@@ -219,32 +248,46 @@ const Step3FinancialDetails = ({
                     </div>
                   </div>
 
+                  {/* Remarks */}
+                  <div className="mt-2">
+                    <label className="block text-[10px] font-bold text-gray-700 mb-1">
+                      Remarks
+                    </label>
+                    <input
+                      type="text"
+                      value={item.remarks || ''}
+                      onChange={(e) =>
+                        onUpdateProjectItem(itemIndex, 'remarks', e.target.value)
+                      }
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg"
+                      placeholder="Any additional details"
+                    />
+                  </div>
+
                   {/* Item Total */}
                   <div className="mt-2 pt-2 border-t border-gray-300 flex justify-between items-center">
-                    <span className="text-[10px] text-gray-600 font-semibold">Item Total:</span>
+                    <span className="text-[10px] text-gray-600 font-semibold">
+                      Item Total:
+                    </span>
                     <span className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(calculateItemTotal(item))}
+                      {/* simple total here, ya tumhare calculateItemTotal se call bhi kar sakti ho */}
+                      {(() => {
+                        const qty = Number(item.quantity) || 0;
+                        const price = Number(item.netPrice) || 0;
+                        return `₹${(qty * price).toLocaleString('en-IN')}`;
+                      })()}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Total Project Cost */}
-            <div className="mt-3 pt-3 border-t-2 border-gray-400">
-              <div className="flex justify-between items-center bg-gradient-to-r from-emerald-50 to-green-50 p-2 rounded-lg border border-emerald-300">
-                <span className="text-lg font-bold text-gray-900">Total Project Cost:</span>
-                <span className="text-lg font-bold text-emerald-600">
-                  {formatCurrency(totalCost)}
-                </span>
-              </div>
-            </div>
           </div>
+
 
           {/* Financial Metrics */}
           <div className="grid grid-cols-2 gap-2">
             {/* Payback Period */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
+            {/* <div className="bg-white border border-gray-200 rounded-lg p-3">
               <label className="block text-lg font-bold text-gray-800 mb-1.5">
                 <TrendingUp className="w-3 h-3 inline mr-1" />
                 Payback Period (Years) <span className="text-red-500">*</span>
@@ -266,9 +309,9 @@ const Step3FinancialDetails = ({
                 </p>
               )}
               <p className="mt-1 text-[10px] text-gray-500">Investment recovery time</p>
-            </div>
+            </div> */}
 
-            {/* Project IRR */}
+            {/* Project IRR
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <label className="block text-lg font-bold text-gray-800 mb-1.5">
                 <TrendingUp className="w-3 h-3 inline mr-1" />
@@ -291,7 +334,7 @@ const Step3FinancialDetails = ({
                 </p>
               )}
               <p className="mt-1 text-[10px] text-gray-500">Expected profitability rate</p>
-            </div>
+            </div> */}
           </div>
 
           {/* ESG Impact Section */}
@@ -335,8 +378,8 @@ const Step3FinancialDetails = ({
                       <label
                         key={esgImpact.esg_id}
                         className={`flex items-center gap-2 p-2 rounded-md transition-all cursor-pointer text-lg ${isEsgImpactSelected(esgImpact.esg_id)
-                            ? 'bg-green-600 text-white shadow-sm'
-                            : 'bg-white hover:bg-green-50 border border-gray-200'
+                          ? 'bg-green-600 text-white shadow-sm'
+                          : 'bg-white hover:bg-green-50 border border-gray-200'
                           }`}
                       >
                         <input
