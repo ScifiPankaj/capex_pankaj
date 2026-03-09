@@ -1,49 +1,54 @@
 // src/reducers/features/masters/mastersApi.js
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import apiAuth from '../../../utils/apiAuth';
 
-/**
- * Masters API
- * Handles all master data endpoints (Plants, Requirements, Nature Assets, etc.)
- */
+// ✅ apiAuth wala baseQuery — environment auto-detect, CSRF + Basic Auth sab handle
+const dynamicBaseQuery = async (args, api, extraOptions) => {
+  const { url, method = 'GET', body } = typeof args === 'string' ? { url: args } : args;
+  const endpoint = `/api/v1/collection/${url}`;
+
+  try {
+    let response;
+
+    switch (method.toUpperCase()) {
+      case 'POST':
+        response = await apiAuth.post(endpoint, body || {});
+        break;
+      case 'PUT':
+        response = await apiAuth.put(endpoint, body || {});
+        break;
+      case 'DELETE':
+        response = await apiAuth.delete(endpoint);
+        break;
+      case 'GET':
+      default:
+        response = await apiAuth.get(endpoint);
+        break;
+    }
+
+    const data = await response.json();
+    return { data };
+
+  } catch (error) {
+    return {
+      error: {
+        status: error.status || 'FETCH_ERROR',
+        error: error.message,
+      },
+    };
+  }
+};
+
 export const mastersApi = createApi({
   reducerPath: 'mastersApi',
-  
-  baseQuery: fetchBaseQuery({ 
-    baseUrl: '/api/v1/collection/',  // ✅ Changed to relative path (proxy will handle it)
-    
-    // Add headers and debugging
-    prepareHeaders: (headers) => {
-      headers.set('Content-Type', 'application/json');
-      headers.set('Accept', 'application/json');
-      return headers;
-    },
-    
-    // Add response validation and debugging
-    validateStatus: (response, result) => {
-      console.log('📡 API Response:', {
-        status: response.status,
-        ok: response.ok,
-        result: result
-      });
-      return response.ok;
-    },
-  }),
-  
+  baseQuery: dynamicBaseQuery,  // ✅ apiAuth wala
   tagTypes: ['Plant', 'Requirement', 'Nature', 'ItemSource', 'ESG'],
-  
+
   endpoints: (builder) => ({
-    // ============================================================
-    // READ ENDPOINTS
-    // ============================================================
-    
-    /**
-     * Get all plants
-     */
+
+    // ── GET Plants ──────────────────────────────────────────────
     getPlants: builder.query({
-      query: () => ({
-        url: 'kln_plantmaster',
-        method: 'GET',
-      }),
+      query: () => ({ url: 'kln_plantmaster', method: 'GET' }),
       providesTags: ['Plant'],
       transformResponse: (response) => {
         console.log('✅ Plants Response:', response);
@@ -54,15 +59,10 @@ export const mastersApi = createApi({
         return error;
       },
     }),
-    
-    /**
-     * Get all requirement types
-     */
+
+    // ── GET Requirements ────────────────────────────────────────
     getRequirements: builder.query({
-      query: () => ({
-        url: 'car_requirement_type',
-        method: 'GET',
-      }),
+      query: () => ({ url: 'car_requirement_type', method: 'GET' }),
       providesTags: ['Requirement'],
       transformResponse: (response) => {
         console.log('✅ Requirements Response:', response);
@@ -73,15 +73,10 @@ export const mastersApi = createApi({
         return error;
       },
     }),
-    
-    /**
-     * Get all nature of assets
-     */
+
+    // ── GET Nature Assets ───────────────────────────────────────
     getNatureAssets: builder.query({
-      query: () => ({
-        url: 'car_nature_asset',
-        method: 'GET',
-      }),
+      query: () => ({ url: 'car_nature_asset', method: 'GET' }),
       providesTags: ['Nature'],
       transformResponse: (response) => {
         console.log('✅ Nature Assets Response:', response);
@@ -92,15 +87,10 @@ export const mastersApi = createApi({
         return error;
       },
     }),
-    
-    /**
-     * Get all item sources
-     */
+
+    // ── GET Item Sources ────────────────────────────────────────
     getItemSources: builder.query({
-      query: () => ({
-        url: 'car_item_source',
-        method: 'GET',
-      }),
+      query: () => ({ url: 'car_item_source', method: 'GET' }),
       providesTags: ['ItemSource'],
       transformResponse: (response) => {
         console.log('✅ Item Sources Response:', response);
@@ -111,15 +101,10 @@ export const mastersApi = createApi({
         return error;
       },
     }),
-    
-    /**
-     * Get all ESG impacts
-     */
+
+    // ── GET ESG Impacts ─────────────────────────────────────────
     getEsgImpacts: builder.query({
-      query: () => ({
-        url: 'car_esg_impacts',
-        method: 'GET',
-      }),
+      query: () => ({ url: 'car_esg_impacts', method: 'GET' }),
       providesTags: ['ESG'],
       transformResponse: (response) => {
         console.log('✅ ESG Impacts Response:', response);
@@ -130,22 +115,10 @@ export const mastersApi = createApi({
         return error;
       },
     }),
-    
-    // ============================================================
-    // MUTATION ENDPOINT (CREATE/UPDATE/DELETE)
-    // ============================================================
-    
-    /**
-     * Generic mutation for all master data operations
-     * Supports POST, PUT, DELETE methods
-     */
+
+    // ── Generic Mutation (POST / PUT / DELETE) ──────────────────
     mutateMaster: builder.mutation({
-      query: ({ url, method, body }) => ({
-        url,
-        method,
-        body,
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      }),
+      query: ({ url, method, body }) => ({ url, method, body }),
       invalidatesTags: ['Plant', 'Requirement', 'Nature', 'ItemSource', 'ESG'],
       transformResponse: (response) => {
         console.log('✅ Mutate Master Response:', response);
@@ -159,7 +132,6 @@ export const mastersApi = createApi({
   }),
 });
 
-// Export hooks
 export const {
   useGetPlantsQuery,
   useGetRequirementsQuery,
@@ -169,5 +141,4 @@ export const {
   useMutateMasterMutation,
 } = mastersApi;
 
-// Export reducer and middleware
 export default mastersApi.reducer;

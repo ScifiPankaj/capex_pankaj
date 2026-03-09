@@ -1,17 +1,11 @@
 from cdb.objects import Object
-from .car_number_generator import generate_car_number
+
 
 
 class CarRequest(Object):
     __maps_to__ = "car_request"
     __classname__ = "car_request"
 
-    @classmethod
-    def Create(cls, **kwargs):
-        """Ensure backend-generated sequential CAR number."""
-        if not kwargs.get("car_no"):
-            kwargs["car_no"] = generate_car_number()
-        return super(CarRequest, cls).Create(**kwargs)
 
 
 class PlantMaster(Object):

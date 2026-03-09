@@ -77,14 +77,14 @@ class Layout(BaseApp):
     pass
 
 
-@Root.mount(app=Layout, path="/kalyani.iot/Layout")
+@Root.mount(app=Layout, path="/kalyani.iot/carform")
 def _mount_app():
     return Layout()
 
 
 @Layout.view(model=BaseModel, name="document_title", internal=True)
 def default_document_title(self, request):
-    return "Layout"
+    return "carform"
 
 
 @Layout.view(model=BaseModel, name="app_component", internal=True)
