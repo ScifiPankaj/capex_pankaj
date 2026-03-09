@@ -1,27 +1,33 @@
 // src/reducers/features/CarForm/carRequestApi.js
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
 import apiAuth from "../../../utils/apiAuth";
 
-// ✅ apiAuth se current environment ka baseURL
+// ✅ mastersApi jaisa pattern — url sirf collection/path dega, baseQuery prefix lagaega
 const dynamicBaseQuery = async (args, api, extraOptions) => {
-  const { url, method = "GET", body } = typeof args === "string" ? { url: args } : args;
+  const { url, method = "GET", body } =
+    typeof args === "string" ? { url: args } : args;
+
+  // ✅ Agar url already /api/v1/ se start ho toh as-is lo, warna prefix lagao
+  const endpoint = url.startsWith("/api/v1/") || url.startsWith("/internal/")
+    ? url
+    : `/api/v1/collection/${url}`;
 
   try {
     let response;
 
     switch (method.toUpperCase()) {
       case "POST":
-        response = await apiAuth.post(url, body || {});
+        response = await apiAuth.post(endpoint, body || {});
         break;
       case "PUT":
-        response = await apiAuth.put(url, body || {});
+        response = await apiAuth.put(endpoint, body || {});
         break;
       case "DELETE":
-        response = await apiAuth.delete(url);
+        response = await apiAuth.delete(endpoint);
         break;
       case "GET":
       default:
-        response = await apiAuth.get(url);
+        response = await apiAuth.get(endpoint);
         break;
     }
 
@@ -29,6 +35,7 @@ const dynamicBaseQuery = async (args, api, extraOptions) => {
     return { data };
 
   } catch (error) {
+    console.error(`❌ ${method} ${endpoint} error →`, error);
     return {
       error: {
         status: error.status || "FETCH_ERROR",
@@ -40,16 +47,13 @@ const dynamicBaseQuery = async (args, api, extraOptions) => {
 
 export const carRequestApi = createApi({
   reducerPath: "carRequestApi",
-  baseQuery: dynamicBaseQuery,   // ✅ apiAuth wala baseQuery
+  baseQuery: dynamicBaseQuery,
   tagTypes: ["CarRequest", "CarItem"],
   endpoints: (builder) => ({
 
-    // ─────────────────────────────────────────
-    // 1) LIST car_request
-    //    GET /api/v1/collection/car_request
-    // ─────────────────────────────────────────
+    // GET /api/v1/collection/car_request
     getCarRequests: builder.query({
-      query: () => ({ url: "/api/v1/collection/car_request", method: "GET" }),
+      query: () => ({ url: "car_request", method: "GET" }),
       providesTags: ["CarRequest"],
       transformResponse: (response) => {
         console.log("✅ CAR Requests fetched:", response);
@@ -57,16 +61,9 @@ export const carRequestApi = createApi({
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 2) CREATE car_request
-    //    POST /api/v1/collection/car_request
-    // ─────────────────────────────────────────
+    // POST /api/v1/collection/car_request
     addCarRequest: builder.mutation({
-      query: (body) => ({
-        url: "/api/v1/collection/car_request",
-        method: "POST",
-        body,
-      }),
+      query: (body) => ({ url: "car_request", method: "POST", body }),
       invalidatesTags: ["CarRequest"],
       async onQueryStarted(arg, { queryFulfilled }) {
         console.group("📨 CAR Request - CREATE");
@@ -75,20 +72,15 @@ export const carRequestApi = createApi({
           const { data } = await queryFulfilled;
           console.log("✅ Created →", data);
         } catch (err) {
-          console.error("❌ Error →", err?.error || err);
-        } finally {
-          console.groupEnd();
-        }
+          console.error("❌ CREATE error →", err?.error || err);
+        } finally { console.groupEnd(); }
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 3) UPDATE car_request
-    //    PUT /api/v1/collection/car_request/{id}
-    // ─────────────────────────────────────────
+    // PUT /api/v1/collection/car_request/{id}
     updateCarRequest: builder.mutation({
       query: ({ id, ...body }) => ({
-        url: `/api/v1/collection/car_request/${id}`,
+        url: `car_request/${id}`,
         method: "PUT",
         body,
       }),
@@ -100,37 +92,23 @@ export const carRequestApi = createApi({
           const { data } = await queryFulfilled;
           console.log("✅ Updated →", data);
         } catch (err) {
-          console.error("❌ Error →", err?.error || err);
-        } finally {
-          console.groupEnd();
-        }
+          console.error("❌ UPDATE error →", err?.error || err);
+        } finally { console.groupEnd(); }
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 4) DELETE car_request
-    //    DELETE /api/v1/collection/car_request/{id}
-    // ─────────────────────────────────────────
+    // DELETE /api/v1/collection/car_request/{id}
     deleteCarRequest: builder.mutation({
-      query: (id) => ({
-        url: `/api/v1/collection/car_request/${id}`,
-        method: "DELETE",
-      }),
+      query: (id) => ({ url: `car_request/${id}`, method: "DELETE" }),
       invalidatesTags: ["CarRequest"],
     }),
 
-    // ─────────────────────────────────────────
-    // 5) GENERATE next CAR number
-    //    GET /internal/car_number
-    // ─────────────────────────────────────────
+    // GET /internal/car_number
     getCarNumber: builder.query({
       query: () => ({ url: "/internal/car_number", method: "GET" }),
     }),
 
-    // ─────────────────────────────────────────
-    // 6) GENERATE next CAR item ID
-    //    POST /internal/car_number
-    // ─────────────────────────────────────────
+    // POST /internal/car_number
     createCarItemId: builder.mutation({
       query: (car_no) => ({
         url: "/internal/car_number",
@@ -147,12 +125,9 @@ export const carRequestApi = createApi({
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 7) LIST car_item_type
-    //    GET /api/v1/collection/car_item_type
-    // ─────────────────────────────────────────
+    // GET /api/v1/collection/car_item_type
     getCarItems: builder.query({
-      query: () => ({ url: "/api/v1/collection/car_item_type", method: "GET" }),
+      query: () => ({ url: "car_item_type", method: "GET" }),
       providesTags: ["CarItem"],
       transformResponse: (response) => {
         console.log("✅ CAR Items fetched:", response);
@@ -160,16 +135,9 @@ export const carRequestApi = createApi({
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 8) CREATE car_item_type
-    //    POST /api/v1/collection/car_item_type
-    // ─────────────────────────────────────────
+    // POST /api/v1/collection/car_item_type
     addCarItem: builder.mutation({
-      query: (body) => ({
-        url: "/api/v1/collection/car_item_type",
-        method: "POST",
-        body,
-      }),
+      query: (body) => ({ url: "car_item_type", method: "POST", body }),
       invalidatesTags: (result, error, arg) =>
         arg?.car_no ? [{ type: "CarItem", id: arg.car_no }] : ["CarItem"],
       async onQueryStarted(arg, { queryFulfilled }) {
@@ -180,19 +148,14 @@ export const carRequestApi = createApi({
           console.log("✅ Created item →", data);
         } catch (err) {
           console.error("❌ Error →", err?.error || err);
-        } finally {
-          console.groupEnd();
-        }
+        } finally { console.groupEnd(); }
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 9) UPDATE car_item_type
-    //    PUT /api/v1/collection/car_item_type/{id}
-    // ─────────────────────────────────────────
+    // PUT /api/v1/collection/car_item_type/{id}
     updateCarItem: builder.mutation({
       query: ({ id, ...body }) => ({
-        url: `/api/v1/collection/car_item_type/${id}`,
+        url: `car_item_type/${id}`,
         method: "PUT",
         body,
       }),
@@ -205,21 +168,13 @@ export const carRequestApi = createApi({
           console.log("✅ Updated item →", data);
         } catch (err) {
           console.error("❌ Error →", err?.error || err);
-        } finally {
-          console.groupEnd();
-        }
+        } finally { console.groupEnd(); }
       },
     }),
 
-    // ─────────────────────────────────────────
-    // 10) DELETE car_item_type
-    //     DELETE /api/v1/collection/car_item_type/{id}
-    // ─────────────────────────────────────────
+    // DELETE /api/v1/collection/car_item_type/{id}
     deleteCarItem: builder.mutation({
-      query: (id) => ({
-        url: `/api/v1/collection/car_item_type/${id}`,
-        method: "DELETE",
-      }),
+      query: (id) => ({ url: `car_item_type/${id}`, method: "DELETE" }),
       invalidatesTags: ["CarItem"],
     }),
   }),
